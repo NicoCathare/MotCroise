@@ -293,12 +293,24 @@ def get_next_target(words_placed: List[Dict[str, Any]], direction: str, grid_row
         return {"target_row": None, "target_col": target_col}
 
 def word_matches_pattern(word: str, pattern: List[str]) -> bool:
-    """Check if a word matches a pattern (letters must match, empty cells accept any letter)"""
+    """Check if a word matches a pattern.
+    - Letters in pattern must match word letters at that position.
+    - Empty cells accept any letter.
+    - The cell right AFTER the word must NOT be an existing letter 
+      (must be empty, '#', or end of pattern) to avoid touching another word."""
     if len(word) > len(pattern):
         return False
     
     for i, letter in enumerate(word):
         if pattern[i] != "" and pattern[i] != letter:
+            return False
+    
+    # Check that the cell right after the word is not a letter
+    # (it must be empty, '#', or the word fills the entire pattern)
+    if len(word) < len(pattern):
+        next_cell = pattern[len(word)]
+        if next_cell != "" and next_cell != "#":
+            # There's an existing letter right after the word end — not allowed
             return False
     
     return True
