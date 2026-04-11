@@ -155,18 +155,20 @@ def place_word(grid: List[List[str]], word: str, row: int, col: int, direction: 
     
     return new_grid
 
-def find_word_positions(grid: List[List[str]], direction: str) -> List[Dict[str, Any]]:
-    """Find all possible positions where a word could be placed"""
+def find_word_positions_on_target(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[Dict[str, Any]]:
+    """Find positions on a specific row (horizontal) or column (vertical).
+    If target is None, search all rows/columns."""
     rows = len(grid)
     cols = len(grid[0])
     positions = []
     
     if direction == "horizontal":
-        for row in range(rows):
+        row_range = [target_row] if target_row is not None else range(rows)
+        for row in row_range:
+            if row < 0 or row >= rows:
+                continue
             for col in range(cols):
-                # Check if we can start a word here
                 if col == 0 or grid[row][col - 1] == "#":
-                    # Find the pattern (letters and empty cells)
                     pattern = []
                     end_col = col
                     while end_col < cols and grid[row][end_col] != "#":
@@ -174,9 +176,9 @@ def find_word_positions(grid: List[List[str]], direction: str) -> List[Dict[str,
                         end_col += 1
                     
                     if len(pattern) >= 2:
-                        # Check if there's at least one letter constraint
                         has_letter = any(c != "" for c in pattern)
-                        if has_letter:
+                        has_empty = any(c == "" for c in pattern)
+                        if has_letter and has_empty:
                             positions.append({
                                 "row": row,
                                 "col": col,
@@ -184,11 +186,12 @@ def find_word_positions(grid: List[List[str]], direction: str) -> List[Dict[str,
                                 "max_length": len(pattern)
                             })
     else:  # vertical
-        for col in range(cols):
+        col_range = [target_col] if target_col is not None else range(cols)
+        for col in col_range:
+            if col < 0 or col >= cols:
+                continue
             for row in range(rows):
-                # Check if we can start a word here
                 if row == 0 or grid[row - 1][col] == "#":
-                    # Find the pattern (letters and empty cells)
                     pattern = []
                     end_row = row
                     while end_row < rows and grid[end_row][col] != "#":
@@ -196,9 +199,9 @@ def find_word_positions(grid: List[List[str]], direction: str) -> List[Dict[str,
                         end_row += 1
                     
                     if len(pattern) >= 2:
-                        # Check if there's at least one letter constraint
                         has_letter = any(c != "" for c in pattern)
-                        if has_letter:
+                        has_empty = any(c == "" for c in pattern)
+                        if has_letter and has_empty:
                             positions.append({
                                 "row": row,
                                 "col": col,
@@ -207,6 +210,52 @@ def find_word_positions(grid: List[List[str]], direction: str) -> List[Dict[str,
                             })
     
     return positions
+
+def get_next_target(words_placed: List[Dict[str, Any]], direction: str, grid_rows: int, grid_cols: int):
+    """Determine the next target row/col based on last placed words.
+    - Horizontal: next row below the last horizontal word placed
+    - Vertical: next column to the right of the last vertical word placed
+    If none placed in that direction yet, use the first/init word position.
+    """
+    if not words_placed:
+        return {"target_row": None, "target_col": None}
+    
+    if direction == "horizontal":
+        # Find the last HORIZONTAL word placed, to get the next row
+        last_h_row = -1
+        for wp in words_placed:
+            if wp.get("direction") == "horizontal":
+                last_h_row = max(last_h_row, wp.get("row", 0))
+        
+        if last_h_row >= 0:
+            # Target = next row after the last horizontal word
+            target_row = last_h_row + 1
+        else:
+            # No horizontal word placed yet (shouldn't happen after init),
+            # use the row below the first word
+            target_row = words_placed[0].get("row", 0) + 1
+        
+        if target_row >= grid_rows:
+            target_row = None
+        return {"target_row": target_row, "target_col": None}
+    
+    else:  # vertical
+        # Find the last VERTICAL word placed, to get the next column
+        last_v_col = -1
+        for wp in words_placed:
+            if wp.get("direction") == "vertical":
+                last_v_col = max(last_v_col, wp.get("col", 0))
+        
+        if last_v_col >= 0:
+            # Target = next column after the last vertical word
+            target_col = last_v_col + 1
+        else:
+            # No vertical word placed yet, use the column after the first word
+            target_col = words_placed[0].get("col", 0) + 1
+        
+        if target_col >= grid_cols:
+            target_col = None
+        return {"target_row": None, "target_col": target_col}
 
 def word_matches_pattern(word: str, pattern: List[str]) -> bool:
     """Check if a word matches a pattern (letters must match, empty cells accept any letter)"""
@@ -332,16 +381,45 @@ async def init_crossword(config: GridConfig):
 
 @api_router.post("/crossword/propose")
 async def propose_word(request: ProposeWordRequest):
-    """Propose a new word based on existing letters"""
+    """Propose a new word based on existing letters, targeting the next row/col"""
     
     grid = request.grid_state.get("grid", [])
     direction = request.direction
+    words_placed = request.grid_state.get("words_placed", [])
+    grid_rows = len(grid)
+    grid_cols = len(grid[0]) if grid else 0
     
     if not grid:
         raise HTTPException(status_code=400, detail="Grille invalide")
     
-    # Find possible positions
-    positions = find_word_positions(grid, direction)
+    # Determine target row/col based on last placed word
+    target = get_next_target(words_placed, direction, grid_rows, grid_cols)
+    target_row = target.get("target_row")
+    target_col = target.get("target_col")
+    
+    # First try: search on the target row/col
+    positions = find_word_positions_on_target(grid, direction, target_row, target_col)
+    
+    # Fallback: if no positions on target, scan nearby rows/cols progressively
+    if not positions and (target_row is not None or target_col is not None):
+        if direction == "horizontal" and target_row is not None:
+            for offset in range(1, grid_rows):
+                for try_row in [target_row + offset, target_row - offset]:
+                    if 0 <= try_row < grid_rows:
+                        positions = find_word_positions_on_target(grid, direction, try_row, None)
+                        if positions:
+                            break
+                if positions:
+                    break
+        elif direction == "vertical" and target_col is not None:
+            for offset in range(1, grid_cols):
+                for try_col in [target_col + offset, target_col - offset]:
+                    if 0 <= try_col < grid_cols:
+                        positions = find_word_positions_on_target(grid, direction, None, try_col)
+                        if positions:
+                            break
+                if positions:
+                    break
     
     if not positions:
         return {
@@ -353,16 +431,15 @@ async def propose_word(request: ProposeWordRequest):
     words_list = get_word_list(request.session_id)
     
     # Get already placed words
-    placed_words = [w.get("word", "") for w in request.grid_state.get("words_placed", [])]
+    placed_word_names = [w.get("word", "") for w in words_placed]
     
     # Try each position and find matching words
     all_proposals = []
     
     for pos in positions:
-        matching = find_matching_words(pos["pattern"], words_list, placed_words, max_results=20)
+        matching = find_matching_words(pos["pattern"], words_list, placed_word_names, max_results=20)
         for word in matching:
-            # Skip if word is already placed
-            if word not in placed_words:
+            if word not in placed_word_names:
                 all_proposals.append({
                     "word": word,
                     "original_word": get_original_word(word),
@@ -392,17 +469,46 @@ async def propose_word(request: ProposeWordRequest):
 
 @api_router.post("/crossword/reject")
 async def reject_and_propose(request: RejectWordRequest):
-    """Reject current word and propose a new one"""
+    """Reject current word and propose a new one on the same target row/col"""
     
     grid = request.grid_state.get("grid", [])
     direction = request.direction
     rejected = [normalize_word(w) for w in request.rejected_words]
+    words_placed = request.grid_state.get("words_placed", [])
+    grid_rows = len(grid)
+    grid_cols = len(grid[0]) if grid else 0
     
     if not grid:
         raise HTTPException(status_code=400, detail="Grille invalide")
     
-    # Find possible positions
-    positions = find_word_positions(grid, direction)
+    # Determine target row/col based on last placed word
+    target = get_next_target(words_placed, direction, grid_rows, grid_cols)
+    target_row = target.get("target_row")
+    target_col = target.get("target_col")
+    
+    # First try: search on the target row/col
+    positions = find_word_positions_on_target(grid, direction, target_row, target_col)
+    
+    # Fallback: if no positions on target, scan nearby rows/cols progressively
+    if not positions and (target_row is not None or target_col is not None):
+        if direction == "horizontal" and target_row is not None:
+            for offset in range(1, grid_rows):
+                for try_row in [target_row + offset, target_row - offset]:
+                    if 0 <= try_row < grid_rows:
+                        positions = find_word_positions_on_target(grid, direction, try_row, None)
+                        if positions:
+                            break
+                if positions:
+                    break
+        elif direction == "vertical" and target_col is not None:
+            for offset in range(1, grid_cols):
+                for try_col in [target_col + offset, target_col - offset]:
+                    if 0 <= try_col < grid_cols:
+                        positions = find_word_positions_on_target(grid, direction, None, try_col)
+                        if positions:
+                            break
+                if positions:
+                    break
     
     if not positions:
         return {
@@ -414,8 +520,8 @@ async def reject_and_propose(request: RejectWordRequest):
     words_list = get_word_list(request.session_id)
     
     # Get already placed words + rejected words
-    placed_words = [w.get("word", "") for w in request.grid_state.get("words_placed", [])]
-    excluded = placed_words + rejected
+    placed_word_names = [w.get("word", "") for w in words_placed]
+    excluded = placed_word_names + rejected
     
     # Try each position and find matching words
     all_proposals = []
