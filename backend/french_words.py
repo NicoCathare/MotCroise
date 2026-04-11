@@ -409,7 +409,106 @@ FRENCH_WORDS = [
     "vitre", "vivant", "vivre", "voeu", "voie", "voila", "voir", "voisin",
     "voiture", "voix", "vol", "voler", "voleur", "vote", "voter", "votre",
     "vous", "voyage", "vrai", "vue", "wagon", "web", "week", "yacht",
-    "yoga", "zone", "zoo"
+    "yoga", "zone", "zoo",
+
+    # === MOTS AVEC ACCENTS (la normalisation les convertira en lettres simples) ===
+    # Mots très longs avec accents
+    "particulièrement", "développement", "responsabilité", "représentation",
+    "interprétation", "établissement", "général", "généralement",
+    "différent", "différence", "nécessaire", "nécessité", "possibilité",
+    "réalité", "réalisation", "société", "activité", "communauté",
+    "sécurité", "qualité", "liberté", "vérité", "beauté", "santé",
+    "volonté", "autorité", "majorité", "minorité", "identité",
+    "électricité", "université", "publicité", "nationalité",
+    "personnalité", "originalité", "spécialité", "générosité",
+    "curiosité", "simplicité", "complexité", "difficulté",
+    "possibilité", "responsabilité", "disponibilité", "visibilité",
+    "crédibilité", "sensibilité", "vulnérabilité",
+    "extraordinaire", "considérable", "remarquable",
+    "indépendance", "connaissance", "reconnaissance",
+    "expérience", "conférence", "préférence", "référence",
+    "différence", "résidence", "présidence", "compétence",
+    "conséquence", "fréquence", "élégance", "tolérance",
+    "résistance", "assistance", "circonstance", "performance",
+    "réglementation", "réhabilitation", "détermination",
+    "accélération", "appréciation", "déclaration", "célébration",
+    "considération", "coopération", "décoration", "démonstration",
+    "éducation", "élimination", "évaluation", "exagération",
+    "exploration", "génération", "hésitation", "illustration",
+    "implication", "amélioration", "détérioration",
+    "négociation", "préparation", "récupération", "séparation",
+    "vérification", "présentation", "représentation",
+
+    # Mots moyens avec accents
+    "écriture", "étoile", "étranger", "étrange", "étudiant", "événement",
+    "évident", "évoluer", "évolution", "éléphant", "énergie", "émotion",
+    "émission", "élection", "élément", "économie", "économique",
+    "éducation", "efficace", "égalité", "échange", "échelle",
+    "début", "décès", "décision", "décembre", "décor", "découverte",
+    "défaut", "défense", "définition", "dégât", "déjeuner", "délai",
+    "démocratie", "département", "dépense", "déplacement", "dépôt",
+    "député", "désert", "désir", "désolé", "désormais", "détail",
+    "détruire", "développer", "différer", "déjà", "délégation",
+    "intéressant", "intérieur", "intermédiaire", "intérêt",
+    "opération", "opposé", "idée", "île", "âge", "âme",
+    "hôpital", "hôtel", "côte", "côté", "rôle", "contrôle",
+    "pôle", "diplôme", "fantôme", "symptôme", "atôme",
+    "fenêtre", "forêt", "fête", "tête", "tempête", "enquête",
+    "conquête", "requête", "quête", "prêt", "arrêt", "intérêt",
+    "maître", "connaître", "apparaître", "paraître", "naître",
+    "être", "peut-être", "ancêtre", "théâtre",
+    "système", "mystère", "critère", "caractère", "atmosphère",
+    "problème", "extrême", "thème", "poème", "crème",
+    "stratégie", "énergie", "allergie", "nostalgie",
+    "démocratie", "bureaucratie", "aristocratie",
+    "société", "anxiété", "variété", "propriété",
+    "fidélité", "réalité", "banalité", "moralité",
+    "capacité", "férocité", "vélocité", "publicité",
+    "sincérité", "sévérité", "prospérité", "postérité",
+    "intégrité", "célébrité", "obscurité",
+    "ambiguïté", "continuité", "gratuité",
+    "créativité", "productivité", "objectivité", "subjectivité",
+    "activité", "festivité", "exclusivité", "sensitivité",
+
+    # Mots avec ç
+    "français", "française", "garçon", "leçon", "façon", "reçu",
+    "façade", "fiançailles", "balançoire", "commerçant",
+    "maçon", "maçonnerie", "rançon", "soupçon", "glaçon",
+    "déçu", "aperçu", "conçu", "gerçure",
+    "ça", "çà", "deçà",
+
+    # Mots courts avec accents
+    "été", "près", "après", "très", "dès", "procès", "succès",
+    "accès", "excès", "progrès", "congrès", "décès",
+    "clé", "idée", "armée", "année", "journée", "soirée",
+    "matinée", "durée", "entrée", "arrivée", "pensée",
+    "marché", "café", "musée", "lycée", "comité", "traité",
+    "résumé", "degré", "carré", "privé",
+    "où", "là", "déjà", "voilà",
+    "sûr", "mûr", "dû", "crû",
+    "bientôt", "tantôt", "aussitôt", "plutôt",
+
+    # Verbes conjugués courants avec accents  
+    "préférer", "espérer", "considérer", "générer", "tolérer",
+    "exagérer", "modérer", "accélérer", "récupérer", "opérer",
+    "suggérer", "gérer", "libérer", "célébrer", "coopérer",
+    "différer", "préserver", "réserver", "présenter",
+    "représenter", "développer", "intéresser", "nécessiter",
+    "réaliser", "organiser", "caractériser", "spécialiser",
+    "révéler", "précéder", "succéder", "posséder",
+    "créer", "répondre", "résoudre", "résister",
+    "réussir", "réfléchir", "réagir", "rétablir",
+    "bénéficier", "apprécier", "négocier", "associer",
+    "étudier", "vérifier", "certifier", "identifier",
+    "maîtriser", "connaître", "reconnaître", "apparaître",
+    "disparaître", "paraître", "satisfaire",
+    "résumer", "présumer", "consumer",
+    "protéger", "piéger", "siéger", "assiéger",
+    "régner", "imprégner", "désigner", "résigner",
+    "mériter", "hériter", "hésiter", "visiter",
+    "méditer", "faciliter", "nécessiter", "précipiter",
+    "inquiéter", "compléter", "interpréter", "répéter",
+    "considérer", "modérer", "tempérer", "persévérer"
 ]
 
 # Nettoyer et préparer la liste (enlever accents pour la recherche, garder originaux pour affichage)
@@ -430,11 +529,18 @@ def normalize_word(word):
     return result
 
 # Créer un dictionnaire avec mots normalisés comme clés
+# La version AVEC accents est prioritaire pour l'affichage
 WORDS_DICT = {}
 for word in FRENCH_WORDS:
     normalized = normalize_word(word)
+    # Préférer la version avec accents (plus longue en bytes ou contient des caractères non-ASCII)
     if normalized not in WORDS_DICT:
         WORDS_DICT[normalized] = word
+    else:
+        # Remplacer par la version accentuée si elle existe
+        existing = WORDS_DICT[normalized]
+        if word != existing and any(ord(c) > 127 for c in word):
+            WORDS_DICT[normalized] = word
 
 # Liste triée par longueur décroissante pour la recherche
 WORDS_BY_LENGTH = sorted(WORDS_DICT.keys(), key=lambda x: -len(x))
