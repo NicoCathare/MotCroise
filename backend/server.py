@@ -304,7 +304,8 @@ def word_matches_pattern(word: str, pattern: List[str]) -> bool:
     return True
 
 def find_matching_words(pattern: List[str], words_list: List[str], excluded: List[str], max_results: int = 50) -> List[str]:
-    """Find words that match the pattern, sorted by length (longest first)"""
+    """Find words that match the pattern, prioritizing words that fill the full pattern length.
+    words_list is already sorted by length (longest first)."""
     matching = []
     max_len = len(pattern)
     
@@ -320,6 +321,8 @@ def find_matching_words(pattern: List[str], words_list: List[str], excluded: Lis
             if len(matching) >= max_results:
                 break
     
+    # Sort: prioritize words that fill the full pattern, then by length descending
+    matching.sort(key=lambda w: (-1 if len(w) == max_len else 0, -len(w)))
     return matching
 
 def get_word_list(session_id: Optional[str]) -> List[str]:
@@ -500,12 +503,9 @@ async def propose_word(request: ProposeWordRequest):
             "message": f"Aucun mot trouvé pour la direction {direction}. Cases noires ajoutées."
         }
     
-    # Sort by length (longest first) and pick a random one from top candidates
+    # Always pick the longest word available
     all_proposals.sort(key=lambda x: -x["length"])
-    
-    # Take top 10 longest and pick randomly
-    top_proposals = all_proposals[:10]
-    proposal = random.choice(top_proposals)
+    proposal = all_proposals[0]
     
     return {
         "proposal": proposal,
@@ -597,12 +597,9 @@ async def reject_and_propose(request: RejectWordRequest):
             "message": f"Plus de mots disponibles pour la direction {direction}. Cases noires ajoutées."
         }
     
-    # Sort by length (longest first) and pick a random one from top candidates
+    # Always pick the longest word available (excluding rejected ones)
     all_proposals.sort(key=lambda x: -x["length"])
-    
-    # Take top 10 longest and pick randomly
-    top_proposals = all_proposals[:10]
-    proposal = random.choice(top_proposals)
+    proposal = all_proposals[0]
     
     return {
         "proposal": proposal,
