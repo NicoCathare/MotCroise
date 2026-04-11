@@ -104,33 +104,54 @@ def can_place_word(grid: List[List[str]], word: str, row: int, col: int, directi
     return True
 
 def place_word(grid: List[List[str]], word: str, row: int, col: int, direction: str) -> List[List[str]]:
-    """Place a word on the grid and add blocking cells"""
+    """Place a word on the grid and add blocking cells before and after if cells are free"""
     new_grid = [row_data[:] for row_data in grid]
     rows = len(grid)
     cols = len(grid[0])
     
     if direction == "horizontal":
-        # Place the word
+        # Place the word first
         for i, letter in enumerate(word):
             new_grid[row][col + i] = letter
-        # Add blocking cell after the word if space available
+        
+        # Add blocking cell AFTER the word if:
+        # - There is space (not at edge)
+        # - The cell is empty (not a letter or already blocked)
         end_col = col + len(word)
-        if end_col < cols and new_grid[row][end_col] == "":
-            new_grid[row][end_col] = "#"
-        # Add blocking cell before the word if space available
-        if col > 0 and new_grid[row][col - 1] == "":
-            new_grid[row][col - 1] = "#"
+        if end_col < cols:
+            cell_after = new_grid[row][end_col]
+            if cell_after == "":
+                new_grid[row][end_col] = "#"
+        
+        # Add blocking cell BEFORE the word if:
+        # - There is space (not at edge)
+        # - The cell is empty (not a letter or already blocked)
+        if col > 0:
+            cell_before = new_grid[row][col - 1]
+            if cell_before == "":
+                new_grid[row][col - 1] = "#"
+                
     else:  # vertical
-        # Place the word
+        # Place the word first
         for i, letter in enumerate(word):
             new_grid[row + i][col] = letter
-        # Add blocking cell after the word if space available
+        
+        # Add blocking cell AFTER the word if:
+        # - There is space (not at edge)
+        # - The cell is empty (not a letter or already blocked)
         end_row = row + len(word)
-        if end_row < rows and new_grid[end_row][col] == "":
-            new_grid[end_row][col] = "#"
-        # Add blocking cell before the word if space available
-        if row > 0 and new_grid[row - 1][col] == "":
-            new_grid[row - 1][col] = "#"
+        if end_row < rows:
+            cell_after = new_grid[end_row][col]
+            if cell_after == "":
+                new_grid[end_row][col] = "#"
+        
+        # Add blocking cell BEFORE the word if:
+        # - There is space (not at edge)
+        # - The cell is empty (not a letter or already blocked)
+        if row > 0:
+            cell_before = new_grid[row - 1][col]
+            if cell_before == "":
+                new_grid[row - 1][col] = "#"
     
     return new_grid
 
