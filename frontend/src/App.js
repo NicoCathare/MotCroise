@@ -399,8 +399,16 @@ function App() {
         setHighlightedCells(cells);
         toast.success(response.data.message);
       } else {
-        toast.info(response.data.message);
+        // No word found: update grid with black cells if returned
+        if (response.data.grid) {
+          setGridState((prev) => ({
+            ...prev,
+            grid: response.data.grid,
+          }));
+        }
+        setProposal(null);
         setHighlightedCells([]);
+        toast.info(response.data.message);
       }
     } catch (error) {
       const message = error.response?.data?.detail || "Erreur lors de la proposition";
@@ -472,6 +480,13 @@ function App() {
         setHighlightedCells(cells);
         toast.success(response.data.message);
       } else {
+        // No word found: update grid with black cells if returned
+        if (response.data.grid) {
+          setGridState((prev) => ({
+            ...prev,
+            grid: response.data.grid,
+          }));
+        }
         setProposal(null);
         setHighlightedCells([]);
         toast.info(response.data.message);

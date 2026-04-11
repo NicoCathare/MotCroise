@@ -155,6 +155,41 @@ def place_word(grid: List[List[str]], word: str, row: int, col: int, direction: 
     
     return new_grid
 
+def fill_black_after_letters(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[List[str]]:
+    """When no word can be placed, put black cells after existing isolated letters
+    on the target row (horizontal) or target column (vertical)."""
+    new_grid = [row_data[:] for row_data in grid]
+    rows = len(grid)
+    cols = len(grid[0])
+    
+    if direction == "horizontal" and target_row is not None and 0 <= target_row < rows:
+        row = target_row
+        for col in range(cols):
+            cell = new_grid[row][col]
+            # If this cell has a letter (from a crossing vertical word)
+            if cell != "" and cell != "#":
+                # Place black cell AFTER (to the right) if empty
+                if col + 1 < cols and new_grid[row][col + 1] == "":
+                    new_grid[row][col + 1] = "#"
+                # Place black cell BEFORE (to the left) if empty
+                if col - 1 >= 0 and new_grid[row][col - 1] == "":
+                    new_grid[row][col - 1] = "#"
+    
+    elif direction == "vertical" and target_col is not None and 0 <= target_col < cols:
+        col = target_col
+        for row in range(rows):
+            cell = new_grid[row][col]
+            # If this cell has a letter (from a crossing horizontal word)
+            if cell != "" and cell != "#":
+                # Place black cell AFTER (below) if empty
+                if row + 1 < rows and new_grid[row + 1][col] == "":
+                    new_grid[row + 1][col] = "#"
+                # Place black cell BEFORE (above) if empty
+                if row - 1 >= 0 and new_grid[row - 1][col] == "":
+                    new_grid[row - 1][col] = "#"
+    
+    return new_grid
+
 def find_word_positions_on_target(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[Dict[str, Any]]:
     """Find positions on a specific row (horizontal) or column (vertical).
     If target is None, search all rows/columns."""
@@ -399,6 +434,8 @@ async def propose_word(request: ProposeWordRequest):
     
     # First try: search on the target row/col
     positions = find_word_positions_on_target(grid, direction, target_row, target_col)
+    actual_target_row = target_row
+    actual_target_col = target_col
     
     # Fallback: if no positions on target, scan nearby rows/cols progressively
     if not positions and (target_row is not None or target_col is not None):
@@ -408,6 +445,7 @@ async def propose_word(request: ProposeWordRequest):
                     if 0 <= try_row < grid_rows:
                         positions = find_word_positions_on_target(grid, direction, try_row, None)
                         if positions:
+                            actual_target_row = try_row
                             break
                 if positions:
                     break
@@ -417,14 +455,18 @@ async def propose_word(request: ProposeWordRequest):
                     if 0 <= try_col < grid_cols:
                         positions = find_word_positions_on_target(grid, direction, None, try_col)
                         if positions:
+                            actual_target_col = try_col
                             break
                 if positions:
                     break
     
     if not positions:
+        # No position available: fill black cells after existing letters on target
+        new_grid = fill_black_after_letters(grid, direction, target_row, target_col)
         return {
             "proposal": None,
-            "message": f"Aucune position disponible pour un mot {direction}"
+            "grid": new_grid,
+            "message": f"Aucune position disponible pour un mot {direction}. Cases noires ajoutées."
         }
     
     # Get word list
@@ -450,9 +492,12 @@ async def propose_word(request: ProposeWordRequest):
                 })
     
     if not all_proposals:
+        # No matching word found: fill black cells on the actual row/col searched
+        new_grid = fill_black_after_letters(grid, direction, actual_target_row, actual_target_col)
         return {
             "proposal": None,
-            "message": f"Aucun mot trouvé pour la direction {direction}"
+            "grid": new_grid,
+            "message": f"Aucun mot trouvé pour la direction {direction}. Cases noires ajoutées."
         }
     
     # Sort by length (longest first) and pick a random one from top candidates
@@ -488,6 +533,8 @@ async def reject_and_propose(request: RejectWordRequest):
     
     # First try: search on the target row/col
     positions = find_word_positions_on_target(grid, direction, target_row, target_col)
+    actual_target_row = target_row
+    actual_target_col = target_col
     
     # Fallback: if no positions on target, scan nearby rows/cols progressively
     if not positions and (target_row is not None or target_col is not None):
@@ -497,6 +544,7 @@ async def reject_and_propose(request: RejectWordRequest):
                     if 0 <= try_row < grid_rows:
                         positions = find_word_positions_on_target(grid, direction, try_row, None)
                         if positions:
+                            actual_target_row = try_row
                             break
                 if positions:
                     break
@@ -506,14 +554,17 @@ async def reject_and_propose(request: RejectWordRequest):
                     if 0 <= try_col < grid_cols:
                         positions = find_word_positions_on_target(grid, direction, None, try_col)
                         if positions:
+                            actual_target_col = try_col
                             break
                 if positions:
                     break
     
     if not positions:
+        new_grid = fill_black_after_letters(grid, direction, target_row, target_col)
         return {
             "proposal": None,
-            "message": f"Aucune position disponible pour un mot {direction}"
+            "grid": new_grid,
+            "message": f"Aucune position disponible pour un mot {direction}. Cases noires ajoutées."
         }
     
     # Get word list
@@ -539,9 +590,11 @@ async def reject_and_propose(request: RejectWordRequest):
             })
     
     if not all_proposals:
+        new_grid = fill_black_after_letters(grid, direction, actual_target_row, actual_target_col)
         return {
             "proposal": None,
-            "message": f"Plus de mots disponibles pour la direction {direction}"
+            "grid": new_grid,
+            "message": f"Plus de mots disponibles pour la direction {direction}. Cases noires ajoutées."
         }
     
     # Sort by length (longest first) and pick a random one from top candidates
