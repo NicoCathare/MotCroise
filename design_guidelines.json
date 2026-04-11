@@ -1,0 +1,86 @@
+{
+  "theme": "Light",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "design_philosophy": "Swiss Brutalist, tool-oriented, high contrast, typography-driven, no unnecessary decorations.",
+  "typography": {
+    "headings": "Cabinet Grotesk",
+    "body": "IBM Plex Sans",
+    "monospace_grid": "IBM Plex Mono",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl tracking-tighter font-black",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl font-semibold",
+      "body": "text-base leading-relaxed",
+      "labels": "text-xs uppercase tracking-[0.2em] font-semibold"
+    }
+  },
+  "colors": {
+    "background": "#FFFFFF",
+    "foreground": "#0A0A0A",
+    "surface": "#F9F9F9",
+    "surface_border": "#E5E5E5",
+    "primary": "#002FA7",
+    "primary_foreground": "#FFFFFF",
+    "accent_hover": "#002380",
+    "grid": {
+      "cell_bg": "#FFFFFF",
+      "cell_border": "#0A0A0A",
+      "blocked_bg": "#0A0A0A",
+      "active_bg": "#E6EFFF",
+      "active_border": "#002FA7"
+    },
+    "status": {
+      "error": "#E53935",
+      "success": "#008A00"
+    }
+  },
+  "layout": {
+    "type": "Dashboard / Tool Workspace",
+    "spacing_scale": "p-4, p-8, p-12 for containers; gap-4, gap-8 for structure.",
+    "structure": {
+      "app_container": "h-screen w-full flex flex-col md:flex-row overflow-hidden bg-white",
+      "sidebar_left": "w-full md:w-80 border-r border-[#E5E5E5] bg-[#F9F9F9] p-6 flex flex-col gap-6 overflow-y-auto",
+      "main_canvas": "flex-1 flex flex-col bg-white p-8 overflow-y-auto relative items-center justify-center",
+      "sidebar_right": "w-full md:w-96 border-l border-[#E5E5E5] bg-[#F9F9F9] p-6 flex flex-col gap-6 overflow-y-auto"
+    },
+    "grid_component": "A CSS Grid or Table based component representing the crossword. Must enforce sharp edges, 1px solid black borders, 1:1 aspect ratio cells."
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#002FA7] text-white hover:bg-[#002380] rounded-none px-6 py-3 font-semibold transition-colors duration-200",
+      "secondary": "bg-transparent border border-[#0A0A0A] text-[#0A0A0A] hover:bg-[#0A0A0A] hover:text-white rounded-none px-6 py-3 font-semibold transition-colors duration-200",
+      "destructive": "bg-transparent border border-[#E53935] text-[#E53935] hover:bg-[#E53935] hover:text-white rounded-none px-6 py-3 font-semibold transition-colors duration-200"
+    },
+    "inputs": "bg-white border border-[#0A0A0A]/20 rounded-none px-4 py-2 focus:ring-0 focus:border-[#002FA7] transition-colors",
+    "file_upload": "border-2 border-dashed border-[#0A0A0A]/20 bg-white hover:bg-[#F9F9F9] p-8 flex flex-col items-center justify-center gap-4 cursor-pointer rounded-none transition-colors",
+    "word_proposal_card": "bg-white border border-[#0A0A0A]/20 p-6 flex flex-col gap-4 shadow-sm rounded-none"
+  },
+  "motion": {
+    "interactions": "Fast, crisp transitions (duration-150). No bouncy animations.",
+    "grid_updates": "Instant or very subtle fade-in for placed words."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Minimalist, 1.5px stroke width."
+  },
+  "media": {
+    "images": [
+      {
+        "category": "background_texture",
+        "url": "https://images.unsplash.com/photo-1711889537550-dccee478b925?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwYWJzdHJhY3QlMjBibGFjayUyMGFuZCUyMHdoaXRlJTIwZ3JpZCUyMHR5cG9ncmFwaHl8ZW58MHx8fHwxNzc1OTMyNzAzfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract black and white grid texture to be used as a subtle background pattern (very low opacity, e.g., opacity-5) in the empty state of the central canvas."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "This is a French Crossword Generator tool. UI copy must be in French (e.g., 'Générateur de Mots Croisés', 'Lignes', 'Colonnes', 'Valider', 'Rejeter', 'Mot Horizontal', 'Mot Vertical').",
+    "Implement a 3-column layout: Left sidebar (Configuration), Center (Crossword Grid), Right sidebar (Proposals & Actions).",
+    "Apply the Swiss Brutalist aesthetic: Use sharp corners (rounded-none), high contrast, and 1px borders instead of drop shadows.",
+    "Typography: Use 'Cabinet Grotesk' for headings, 'IBM Plex Sans' for UI body, and 'IBM Plex Mono' strictly for the crossword grid cells to ensure proper alignment and a technical feel.",
+    "The Grid: Implement a responsive grid where cells maintain a 1:1 aspect ratio. Letter cells are white with black text. Blocked (black) cells are pure black. Active/Highlighted cells use the primary blue (#E6EFFF).",
+    "The Flow: 1. Setup size & upload dictionary. 2. Prompt for 1st Horizontal and 1st Vertical word. 3. Automatically place black squares. 4. Propose new words iteratively on the right panel.",
+    "Ensure all interactive elements have explicit 'data-testid' attributes (e.g., data-testid='valider-mot', data-testid='rejeter-mot', data-testid='upload-dico').",
+    "Do not use generic Shadcn cards with rounded corners. Override Shadcn defaults to match the sharp, border-driven Swiss style.",
+    "No placeholder images. Use the provided abstract texture subtly in the background if the grid is empty."
+  ]
+}
