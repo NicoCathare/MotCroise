@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Upload, RefreshCw, Check, X, Grid3X3, ArrowRight, ArrowDown, Square } from "lucide-react";
+import { Upload, RefreshCw, Check, X, Grid3X3, ArrowRight, ArrowDown, Square, Undo2 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -184,6 +184,8 @@ const ProposalPanel = ({
   onRequestHorizontal,
   onRequestVertical,
   onFinish,
+  onUndo,
+  canUndo,
   isLoading,
   wordsPlaced,
   gridInitialized,
@@ -228,6 +230,15 @@ const ProposalPanel = ({
           >
             <Square size={16} />
             Terminer
+          </button>
+          <button
+            onClick={onUndo}
+            disabled={isLoading || !canUndo}
+            className="btn-destructive flex items-center justify-center gap-2"
+            data-testid="btn-undo"
+          >
+            <Undo2 size={16} />
+            Annuler
           </button>
         </div>
       )}
@@ -332,6 +343,7 @@ function App() {
   const [sessionId, setSessionId] = useState(null);
   const [wordCount, setWordCount] = useState(0);
   const [highlightedCells, setHighlightedCells] = useState([]);
+  const [history, setHistory] = useState([]);
 
   // Fetch word count on mount
   const fetchWordCount = useCallback(async () => {
@@ -348,6 +360,22 @@ function App() {
   useState(() => {
     fetchWordCount();
   }, [fetchWordCount]);
+
+  // Save current state to history before any grid modification
+  const saveToHistory = () => {
+    setHistory((prev) => [...prev, JSON.parse(JSON.stringify(gridState))]);
+  };
+
+  // Undo last action
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previousState = history[history.length - 1];
+    setGridState(previousState);
+    setHistory((prev) => prev.slice(0, -1));
+    setProposal(null);
+    setHighlightedCells([]);
+    toast.success("Action annulée");
+  };
 
   // Initialize grid
   const handleInit = async () => {
@@ -374,6 +402,7 @@ function App() {
       });
       setProposal(null);
       setRejectedWords([]);
+      setHistory([]);
       toast.success(response.data.message);
     } catch (error) {
       const message = error.response?.data?.detail || "Erreur lors de l'initialisation";
@@ -411,6 +440,7 @@ function App() {
       } else {
         // No word found: update grid with black cells if returned
         if (response.data.grid) {
+          saveToHistory();
           setGridState((prev) => ({
             ...prev,
             grid: response.data.grid,
@@ -432,6 +462,7 @@ function App() {
   const handleAccept = async () => {
     if (!proposal) return;
 
+    saveToHistory();
     setIsLoading(true);
     try {
       const response = await axios.post(`${API}/crossword/place`, {
@@ -492,6 +523,7 @@ function App() {
       } else {
         // No word found: update grid with black cells if returned
         if (response.data.grid) {
+          saveToHistory();
           setGridState((prev) => ({
             ...prev,
             grid: response.data.grid,
@@ -532,6 +564,7 @@ function App() {
 
   // Finish grid - fill all empty cells with black
   const handleFinish = async () => {
+    saveToHistory();
     setIsLoading(true);
     try {
       const response = await axios.post(`${API}/crossword/finish`, {
@@ -580,6 +613,8 @@ function App() {
         onRequestHorizontal={() => requestProposal("horizontal")}
         onRequestVertical={() => requestProposal("vertical")}
         onFinish={handleFinish}
+        onUndo={handleUndo}
+        canUndo={history.length > 0}
         isLoading={isLoading}
         wordsPlaced={gridState.words_placed}
         gridInitialized={gridState.grid.length > 0}
