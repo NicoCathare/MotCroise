@@ -324,9 +324,10 @@ def fill_black_after_letters(grid: List[List[str]], direction: str, target_row: 
     
     return new_grid
 
-def find_word_positions_on_target(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[Dict[str, Any]]:
+def find_word_positions_on_target(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None, allow_empty: bool = False) -> List[Dict[str, Any]]:
     """Find positions on a specific row (horizontal) or column (vertical).
-    If target is None, search all rows/columns."""
+    If target is None, search all rows/columns.
+    If allow_empty is True, also return positions on fully empty rows/cols (for priority words)."""
     rows = len(grid)
     cols = len(grid[0])
     positions = []
@@ -347,7 +348,7 @@ def find_word_positions_on_target(grid: List[List[str]], direction: str, target_
                     if len(pattern) >= 2:
                         has_letter = any(c != "" for c in pattern)
                         has_empty = any(c == "" for c in pattern)
-                        if has_letter and has_empty:
+                        if (has_letter and has_empty) or (allow_empty and has_empty):
                             positions.append({
                                 "row": row,
                                 "col": col,
@@ -370,7 +371,7 @@ def find_word_positions_on_target(grid: List[List[str]], direction: str, target_
                     if len(pattern) >= 2:
                         has_letter = any(c != "" for c in pattern)
                         has_empty = any(c == "" for c in pattern)
-                        if has_letter and has_empty:
+                        if (has_letter and has_empty) or (allow_empty and has_empty):
                             positions.append({
                                 "row": row,
                                 "col": col,
@@ -596,12 +597,16 @@ async def propose_word(request: ProposeWordRequest):
     target_row = target.get("target_row")
     target_col = target.get("target_col")
     
-    # First try: search on the target row/col
+    # Check if we have priority words
+    priority_list = get_priority_list(request.session_id)
+    has_priority = len(priority_list) > 0
+    
+    # Search positions with letter constraints (for dictionary words)
     positions = find_word_positions_on_target(grid, direction, target_row, target_col)
     actual_target_row = target_row
     actual_target_col = target_col
     
-    # Fallback: if no positions on target, scan nearby rows/cols progressively
+    # Fallback for constrained positions
     if not positions and (target_row is not None or target_col is not None):
         if direction == "horizontal" and target_row is not None:
             for offset in range(1, grid_rows):
@@ -624,8 +629,12 @@ async def propose_word(request: ProposeWordRequest):
                 if positions:
                     break
     
-    if not positions:
-        # No position available: fill black cells after existing letters on target
+    # For priority words: also collect ALL positions including empty rows/cols
+    all_empty_positions = []
+    if has_priority:
+        all_empty_positions = find_word_positions_on_target(grid, direction, None, None, allow_empty=True)
+    
+    if not positions and not all_empty_positions:
         new_grid = fill_black_after_letters(grid, direction, target_row, target_col)
         return {
             "proposal": None,
@@ -635,20 +644,36 @@ async def propose_word(request: ProposeWordRequest):
     
     # Get word list
     words_list = get_word_list(request.session_id)
-    priority_list = get_priority_list(request.session_id)
     
     # Get already placed words
     placed_word_names = [w.get("word", "") for w in words_placed]
     
-    # Try each position and find matching words
     all_proposals = []
     priority_proposals = []
     
+    # 1) Search priority words on ALL positions (including empty rows/cols)
+    if has_priority and all_empty_positions:
+        for pos in all_empty_positions:
+            matching_prio = find_matching_words(pos["pattern"], priority_list, placed_word_names, max_results=20)
+            for word in matching_prio:
+                if word not in placed_word_names and not any(p["word"] == word for p in priority_proposals):
+                    entry = {
+                        "word": word,
+                        "original_word": get_priority_original(request.session_id, word),
+                        "direction": direction,
+                        "row": pos["row"],
+                        "col": pos["col"],
+                        "length": len(word),
+                        "is_priority": True
+                    }
+                    priority_proposals.append(entry)
+                    all_proposals.append(entry)
+    
+    # 2) Search main dictionary on constrained positions only
     for pos in positions:
-        # Search in main dictionary
         matching = find_matching_words(pos["pattern"], words_list, placed_word_names, max_results=20)
         for word in matching:
-            if word not in placed_word_names:
+            if word not in placed_word_names and not any(p["word"] == word for p in all_proposals):
                 is_priority = word in priority_list
                 entry = {
                     "word": word,
@@ -661,23 +686,6 @@ async def propose_word(request: ProposeWordRequest):
                 }
                 all_proposals.append(entry)
                 if is_priority:
-                    priority_proposals.append(entry)
-        
-        # Also search priority words not in main dict
-        if priority_list:
-            matching_prio = find_matching_words(pos["pattern"], priority_list, placed_word_names, max_results=20)
-            for word in matching_prio:
-                if word not in placed_word_names and not any(p["word"] == word for p in all_proposals):
-                    entry = {
-                        "word": word,
-                        "original_word": get_priority_original(request.session_id, word),
-                        "direction": direction,
-                        "row": pos["row"],
-                        "col": pos["col"],
-                        "length": len(word),
-                        "is_priority": True
-                    }
-                    all_proposals.append(entry)
                     priority_proposals.append(entry)
     
     if not all_proposals:
@@ -721,12 +729,15 @@ async def reject_and_propose(request: RejectWordRequest):
     target_row = target.get("target_row")
     target_col = target.get("target_col")
     
-    # First try: search on the target row/col
+    # Check if we have priority words
+    priority_list = get_priority_list(request.session_id)
+    has_priority = len(priority_list) > 0
+    
+    # Search constrained positions
     positions = find_word_positions_on_target(grid, direction, target_row, target_col)
     actual_target_row = target_row
     actual_target_col = target_col
     
-    # Fallback: if no positions on target, scan nearby rows/cols progressively
     if not positions and (target_row is not None or target_col is not None):
         if direction == "horizontal" and target_row is not None:
             for offset in range(1, grid_rows):
@@ -749,7 +760,12 @@ async def reject_and_propose(request: RejectWordRequest):
                 if positions:
                     break
     
-    if not positions:
+    # For priority words: collect ALL positions including empty
+    all_empty_positions = []
+    if has_priority:
+        all_empty_positions = find_word_positions_on_target(grid, direction, None, None, allow_empty=True)
+    
+    if not positions and not all_empty_positions:
         new_grid = fill_black_after_letters(grid, direction, target_row, target_col)
         return {
             "proposal": None,
@@ -759,37 +775,20 @@ async def reject_and_propose(request: RejectWordRequest):
     
     # Get word list
     words_list = get_word_list(request.session_id)
-    priority_list = get_priority_list(request.session_id)
     
     # Get already placed words + rejected words
     placed_word_names = [w.get("word", "") for w in words_placed]
     excluded = placed_word_names + rejected
     
-    # Try each position and find matching words
     all_proposals = []
     priority_proposals = []
     
-    for pos in positions:
-        matching = find_matching_words(pos["pattern"], words_list, excluded, max_results=30)
-        for word in matching:
-            is_priority = word in priority_list
-            entry = {
-                "word": word,
-                "original_word": get_priority_original(request.session_id, word) if is_priority else get_original_word(word),
-                "direction": direction,
-                "row": pos["row"],
-                "col": pos["col"],
-                "length": len(word),
-                "is_priority": is_priority
-            }
-            all_proposals.append(entry)
-            if is_priority:
-                priority_proposals.append(entry)
-        
-        if priority_list:
+    # 1) Search priority words on ALL positions
+    if has_priority and all_empty_positions:
+        for pos in all_empty_positions:
             matching_prio = find_matching_words(pos["pattern"], priority_list, excluded, max_results=30)
             for word in matching_prio:
-                if not any(p["word"] == word for p in all_proposals):
+                if word not in excluded and not any(p["word"] == word for p in priority_proposals):
                     entry = {
                         "word": word,
                         "original_word": get_priority_original(request.session_id, word),
@@ -799,7 +798,26 @@ async def reject_and_propose(request: RejectWordRequest):
                         "length": len(word),
                         "is_priority": True
                     }
+                    priority_proposals.append(entry)
                     all_proposals.append(entry)
+    
+    # 2) Search main dictionary on constrained positions
+    for pos in positions:
+        matching = find_matching_words(pos["pattern"], words_list, excluded, max_results=30)
+        for word in matching:
+            if not any(p["word"] == word for p in all_proposals):
+                is_priority = word in priority_list
+                entry = {
+                    "word": word,
+                    "original_word": get_priority_original(request.session_id, word) if is_priority else get_original_word(word),
+                    "direction": direction,
+                    "row": pos["row"],
+                    "col": pos["col"],
+                    "length": len(word),
+                    "is_priority": is_priority
+                }
+                all_proposals.append(entry)
+                if is_priority:
                     priority_proposals.append(entry)
     
     if not all_proposals:
