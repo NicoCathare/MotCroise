@@ -156,8 +156,9 @@ def place_word(grid: List[List[str]], word: str, row: int, col: int, direction: 
     return new_grid
 
 def fill_black_after_letters(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[List[str]]:
-    """When no word can be placed, put black cells after existing isolated letters
-    on the target row (horizontal) or target column (vertical)."""
+    """When no word can be placed, put a single black cell after each existing
+    isolated letter on the target row (horizontal) or column (vertical).
+    Only adds # AFTER the letter (not before) to avoid double black cells."""
     new_grid = [row_data[:] for row_data in grid]
     rows = len(grid)
     cols = len(grid[0])
@@ -166,27 +167,19 @@ def fill_black_after_letters(grid: List[List[str]], direction: str, target_row: 
         row = target_row
         for col in range(cols):
             cell = new_grid[row][col]
-            # If this cell has a letter (from a crossing vertical word)
             if cell != "" and cell != "#":
-                # Place black cell AFTER (to the right) if empty
+                # Place one black cell AFTER (to the right) if empty
                 if col + 1 < cols and new_grid[row][col + 1] == "":
                     new_grid[row][col + 1] = "#"
-                # Place black cell BEFORE (to the left) if empty
-                if col - 1 >= 0 and new_grid[row][col - 1] == "":
-                    new_grid[row][col - 1] = "#"
     
     elif direction == "vertical" and target_col is not None and 0 <= target_col < cols:
         col = target_col
         for row in range(rows):
             cell = new_grid[row][col]
-            # If this cell has a letter (from a crossing horizontal word)
             if cell != "" and cell != "#":
-                # Place black cell AFTER (below) if empty
+                # Place one black cell AFTER (below) if empty
                 if row + 1 < rows and new_grid[row + 1][col] == "":
                     new_grid[row + 1][col] = "#"
-                # Place black cell BEFORE (above) if empty
-                if row - 1 >= 0 and new_grid[row - 1][col] == "":
-                    new_grid[row - 1][col] = "#"
     
     return new_grid
 
