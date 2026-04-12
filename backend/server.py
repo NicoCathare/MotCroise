@@ -156,30 +156,56 @@ def place_word(grid: List[List[str]], word: str, row: int, col: int, direction: 
     return new_grid
 
 def fill_black_after_letters(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[List[str]]:
-    """When no word can be placed, put a single black cell after each existing
-    isolated letter on the target row (horizontal) or column (vertical).
-    Only adds # AFTER the letter (not before) to avoid double black cells."""
+    """When no word can be placed, put a black cell after the first group of
+    consecutive letters on the target row/col. Leaves other letters untouched
+    so they can serve as starting points for future longer words."""
     new_grid = [row_data[:] for row_data in grid]
     rows = len(grid)
     cols = len(grid[0])
     
     if direction == "horizontal" and target_row is not None and 0 <= target_row < rows:
         row = target_row
+        # Scan from left: find the first consecutive group of letters
+        in_group = False
+        last_letter_col = -1
         for col in range(cols):
             cell = new_grid[row][col]
-            if cell != "" and cell != "#":
-                # Place one black cell AFTER (to the right) if empty
-                if col + 1 < cols and new_grid[row][col + 1] == "":
-                    new_grid[row][col + 1] = "#"
+            if cell == "#":
+                if in_group:
+                    break  # group ended by existing #
+                continue  # skip leading #
+            if cell != "":  # it's a letter
+                in_group = True
+                last_letter_col = col
+            else:  # empty cell
+                if in_group:
+                    break  # first empty cell after letters = end of group
+        
+        # Place one # right after the last letter of this first group
+        if last_letter_col >= 0 and last_letter_col + 1 < cols:
+            if new_grid[row][last_letter_col + 1] == "":
+                new_grid[row][last_letter_col + 1] = "#"
     
     elif direction == "vertical" and target_col is not None and 0 <= target_col < cols:
         col = target_col
-        for row in range(rows):
-            cell = new_grid[row][col]
-            if cell != "" and cell != "#":
-                # Place one black cell AFTER (below) if empty
-                if row + 1 < rows and new_grid[row + 1][col] == "":
-                    new_grid[row + 1][col] = "#"
+        in_group = False
+        last_letter_row = -1
+        for r in range(rows):
+            cell = new_grid[r][col]
+            if cell == "#":
+                if in_group:
+                    break
+                continue
+            if cell != "":
+                in_group = True
+                last_letter_row = r
+            else:
+                if in_group:
+                    break
+        
+        if last_letter_row >= 0 and last_letter_row + 1 < rows:
+            if new_grid[last_letter_row + 1][col] == "":
+                new_grid[last_letter_row + 1][col] = "#"
     
     return new_grid
 
