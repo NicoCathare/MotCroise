@@ -155,6 +155,119 @@ def place_word(grid: List[List[str]], word: str, row: int, col: int, direction: 
     
     return new_grid
 
+def validate_cross_direction(grid: List[List[str]], placed_direction: str, words_list: List[str]) -> List[List[str]]:
+    """After placing a word, check the perpendicular direction for invalid letter groups.
+    For each column (if placed horizontal) or row (if placed vertical),
+    find groups of 3+ consecutive letters. If no valid word exists for that group,
+    encadre it with black cells (before and after, if not already # or grid edge)."""
+    new_grid = [row_data[:] for row_data in grid]
+    rows = len(grid)
+    cols = len(grid[0])
+    
+    if placed_direction == "horizontal":
+        # Check all COLUMNS vertically
+        for col in range(cols):
+            groups = _find_letter_groups_in_col(new_grid, col, rows)
+            for group in groups:
+                if group["length"] >= 3:
+                    # Build pattern for this vertical group
+                    pattern = []
+                    for r in range(group["start"], group["start"] + group["length"]):
+                        pattern.append(new_grid[r][col])
+                    
+                    # Check if any word matches this pattern
+                    has_valid = _pattern_has_valid_word(pattern, words_list)
+                    
+                    if not has_valid:
+                        # Encadre with black cells
+                        start_r = group["start"]
+                        end_r = group["start"] + group["length"] - 1
+                        # Black cell BEFORE the group
+                        if start_r > 0 and new_grid[start_r - 1][col] == "":
+                            new_grid[start_r - 1][col] = "#"
+                        # Black cell AFTER the group
+                        if end_r + 1 < rows and new_grid[end_r + 1][col] == "":
+                            new_grid[end_r + 1][col] = "#"
+    
+    else:  # placed vertical -> check all ROWS horizontally
+        for row in range(rows):
+            groups = _find_letter_groups_in_row(new_grid, row, cols)
+            for group in groups:
+                if group["length"] >= 3:
+                    pattern = []
+                    for c in range(group["start"], group["start"] + group["length"]):
+                        pattern.append(new_grid[row][c])
+                    
+                    has_valid = _pattern_has_valid_word(pattern, words_list)
+                    
+                    if not has_valid:
+                        start_c = group["start"]
+                        end_c = group["start"] + group["length"] - 1
+                        if start_c > 0 and new_grid[row][start_c - 1] == "":
+                            new_grid[row][start_c - 1] = "#"
+                        if end_c + 1 < cols and new_grid[row][end_c + 1] == "":
+                            new_grid[row][end_c + 1] = "#"
+    
+    return new_grid
+
+def _find_letter_groups_in_col(grid: List[List[str]], col: int, rows: int) -> List[Dict]:
+    """Find groups of consecutive letters (no empty, no #) in a column."""
+    groups = []
+    start = None
+    for r in range(rows):
+        cell = grid[r][col]
+        if cell != "" and cell != "#":
+            if start is None:
+                start = r
+        else:
+            if start is not None:
+                length = r - start
+                if length >= 3:
+                    groups.append({"start": start, "length": length})
+                start = None
+    # Don't forget trailing group
+    if start is not None:
+        length = rows - start
+        if length >= 3:
+            groups.append({"start": start, "length": length})
+    return groups
+
+def _find_letter_groups_in_row(grid: List[List[str]], row: int, cols: int) -> List[Dict]:
+    """Find groups of consecutive letters (no empty, no #) in a row."""
+    groups = []
+    start = None
+    for c in range(cols):
+        cell = grid[row][c]
+        if cell != "" and cell != "#":
+            if start is None:
+                start = c
+        else:
+            if start is not None:
+                length = c - start
+                if length >= 3:
+                    groups.append({"start": start, "length": length})
+                start = None
+    if start is not None:
+        length = cols - start
+        if length >= 3:
+            groups.append({"start": start, "length": length})
+    return groups
+
+def _pattern_has_valid_word(pattern: List[str], words_list: List[str]) -> bool:
+    """Check if at least one word in the list matches this exact pattern (same length)."""
+    pat_len = len(pattern)
+    for word in words_list:
+        if len(word) != pat_len:
+            continue
+        match = True
+        for i, letter in enumerate(word):
+            if pattern[i] != letter:
+                match = False
+                break
+        if match:
+            return True
+    return False
+
 def fill_black_after_letters(grid: List[List[str]], direction: str, target_row: int = None, target_col: int = None) -> List[List[str]]:
     """When no word can be placed, put a black cell after the first group of
     consecutive letters on the target row/col. Leaves other letters untouched
@@ -423,6 +536,11 @@ async def init_crossword(config: GridConfig):
     # Place vertical word (this will overwrite the intersection which is fine)
     grid = place_word(grid, v_word, v_row, v_col, "vertical")
     
+    # Validate cross directions after init
+    words_list = get_word_list(config.session_id)
+    grid = validate_cross_direction(grid, "horizontal", words_list)
+    grid = validate_cross_direction(grid, "vertical", words_list)
+    
     words_placed = [
         {
             "word": h_word,
@@ -653,6 +771,10 @@ async def place_word_on_grid(request: PlaceWordRequest):
     
     # Place the word
     new_grid = place_word(grid, word, request.row, request.col, request.direction)
+    
+    # Validate cross direction: check perpendicular groups of 3+ letters
+    words_list = get_word_list(request.grid_state.get("session_id"))
+    new_grid = validate_cross_direction(new_grid, request.direction, words_list)
     
     # Update words placed
     words_placed = request.grid_state.get("words_placed", [])
