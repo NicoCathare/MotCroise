@@ -26,8 +26,10 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# In-memory storage for custom word lists per session
-custom_word_lists: Dict[str, List[str]] = {}
+# In-memory storage for priority word lists per session
+priority_word_lists: Dict[str, List[str]] = {}
+# Store original forms for priority words
+priority_word_originals: Dict[str, Dict[str, str]] = {}
 
 # Models
 class GridConfig(BaseModel):
@@ -470,10 +472,20 @@ def find_matching_words(pattern: List[str], words_list: List[str], excluded: Lis
     return matching
 
 def get_word_list(session_id: Optional[str]) -> List[str]:
-    """Get the word list for a session (custom or default)"""
-    if session_id and session_id in custom_word_lists:
-        return custom_word_lists[session_id]
+    """Get the main word list (always the built-in dictionary)"""
     return WORDS_BY_LENGTH
+
+def get_priority_list(session_id: Optional[str]) -> List[str]:
+    """Get the priority word list for a session (uploaded by user)"""
+    if session_id and session_id in priority_word_lists:
+        return priority_word_lists[session_id]
+    return []
+
+def get_priority_original(session_id: Optional[str], normalized: str) -> str:
+    """Get original form of a priority word"""
+    if session_id and session_id in priority_word_originals:
+        return priority_word_originals[session_id].get(normalized, get_original_word(normalized))
+    return get_original_word(normalized)
 
 # API Routes
 @api_router.get("/")
@@ -623,25 +635,50 @@ async def propose_word(request: ProposeWordRequest):
     
     # Get word list
     words_list = get_word_list(request.session_id)
+    priority_list = get_priority_list(request.session_id)
     
     # Get already placed words
     placed_word_names = [w.get("word", "") for w in words_placed]
     
     # Try each position and find matching words
     all_proposals = []
+    priority_proposals = []
     
     for pos in positions:
+        # Search in main dictionary
         matching = find_matching_words(pos["pattern"], words_list, placed_word_names, max_results=20)
         for word in matching:
             if word not in placed_word_names:
-                all_proposals.append({
+                is_priority = word in priority_list
+                entry = {
                     "word": word,
-                    "original_word": get_original_word(word),
+                    "original_word": get_priority_original(request.session_id, word) if is_priority else get_original_word(word),
                     "direction": direction,
                     "row": pos["row"],
                     "col": pos["col"],
-                    "length": len(word)
-                })
+                    "length": len(word),
+                    "is_priority": is_priority
+                }
+                all_proposals.append(entry)
+                if is_priority:
+                    priority_proposals.append(entry)
+        
+        # Also search priority words not in main dict
+        if priority_list:
+            matching_prio = find_matching_words(pos["pattern"], priority_list, placed_word_names, max_results=20)
+            for word in matching_prio:
+                if word not in placed_word_names and not any(p["word"] == word for p in all_proposals):
+                    entry = {
+                        "word": word,
+                        "original_word": get_priority_original(request.session_id, word),
+                        "direction": direction,
+                        "row": pos["row"],
+                        "col": pos["col"],
+                        "length": len(word),
+                        "is_priority": True
+                    }
+                    all_proposals.append(entry)
+                    priority_proposals.append(entry)
     
     if not all_proposals:
         # No matching word found: fill black cells on the actual row/col searched
@@ -652,9 +689,13 @@ async def propose_word(request: ProposeWordRequest):
             "message": f"Aucun mot trouvé pour la direction {direction}. Cases noires ajoutées."
         }
     
-    # Always pick the longest word available
-    all_proposals.sort(key=lambda x: -x["length"])
-    proposal = all_proposals[0]
+    # Priority: pick from priority list first (longest priority word), else longest overall
+    if priority_proposals:
+        priority_proposals.sort(key=lambda x: -x["length"])
+        proposal = priority_proposals[0]
+    else:
+        all_proposals.sort(key=lambda x: -x["length"])
+        proposal = all_proposals[0]
     
     return {
         "proposal": proposal,
@@ -718,6 +759,7 @@ async def reject_and_propose(request: RejectWordRequest):
     
     # Get word list
     words_list = get_word_list(request.session_id)
+    priority_list = get_priority_list(request.session_id)
     
     # Get already placed words + rejected words
     placed_word_names = [w.get("word", "") for w in words_placed]
@@ -725,18 +767,40 @@ async def reject_and_propose(request: RejectWordRequest):
     
     # Try each position and find matching words
     all_proposals = []
+    priority_proposals = []
     
     for pos in positions:
         matching = find_matching_words(pos["pattern"], words_list, excluded, max_results=30)
         for word in matching:
-            all_proposals.append({
+            is_priority = word in priority_list
+            entry = {
                 "word": word,
-                "original_word": get_original_word(word),
+                "original_word": get_priority_original(request.session_id, word) if is_priority else get_original_word(word),
                 "direction": direction,
                 "row": pos["row"],
                 "col": pos["col"],
-                "length": len(word)
-            })
+                "length": len(word),
+                "is_priority": is_priority
+            }
+            all_proposals.append(entry)
+            if is_priority:
+                priority_proposals.append(entry)
+        
+        if priority_list:
+            matching_prio = find_matching_words(pos["pattern"], priority_list, excluded, max_results=30)
+            for word in matching_prio:
+                if not any(p["word"] == word for p in all_proposals):
+                    entry = {
+                        "word": word,
+                        "original_word": get_priority_original(request.session_id, word),
+                        "direction": direction,
+                        "row": pos["row"],
+                        "col": pos["col"],
+                        "length": len(word),
+                        "is_priority": True
+                    }
+                    all_proposals.append(entry)
+                    priority_proposals.append(entry)
     
     if not all_proposals:
         new_grid = fill_black_after_letters(grid, direction, actual_target_row, actual_target_col)
@@ -746,9 +810,13 @@ async def reject_and_propose(request: RejectWordRequest):
             "message": f"Plus de mots disponibles pour la direction {direction}. Cases noires ajoutées."
         }
     
-    # Always pick the longest word available (excluding rejected ones)
-    all_proposals.sort(key=lambda x: -x["length"])
-    proposal = all_proposals[0]
+    # Priority: pick from priority list first, else longest overall
+    if priority_proposals:
+        priority_proposals.sort(key=lambda x: -x["length"])
+        proposal = priority_proposals[0]
+    else:
+        all_proposals.sort(key=lambda x: -x["length"])
+        proposal = all_proposals[0]
     
     return {
         "proposal": proposal,
@@ -811,7 +879,7 @@ async def finish_grid(request: FinishGridRequest):
 
 @api_router.post("/words/upload")
 async def upload_word_list(file: UploadFile = File(...)):
-    """Upload a custom word list"""
+    """Upload a priority word list to place in the grid first"""
     
     if not file.filename.endswith('.txt'):
         raise HTTPException(status_code=400, detail="Le fichier doit être un fichier .txt")
@@ -821,28 +889,32 @@ async def upload_word_list(file: UploadFile = File(...)):
         text = content.decode('utf-8')
         
         # Parse words (one per line)
-        words = []
+        words_normalized = []
+        originals = {}
         for line in text.split('\n'):
             word = line.strip()
             if word and len(word) >= 2:
                 normalized = normalize_word(word)
-                if normalized.isalpha():
-                    words.append(normalized)
+                if normalized.isalpha() and normalized not in originals:
+                    words_normalized.append(normalized)
+                    originals[normalized] = word  # keep original with accents
         
-        if len(words) < 10:
-            raise HTTPException(status_code=400, detail="Le fichier doit contenir au moins 10 mots valides")
+        if len(words_normalized) < 1:
+            raise HTTPException(status_code=400, detail="Le fichier doit contenir au moins 1 mot valide")
         
         # Sort by length (longest first)
-        words = sorted(list(set(words)), key=lambda x: -len(x))
+        words_normalized.sort(key=lambda x: -len(x))
         
         # Generate session ID
         session_id = str(uuid.uuid4())
-        custom_word_lists[session_id] = words
+        priority_word_lists[session_id] = words_normalized
+        priority_word_originals[session_id] = originals
         
         return {
             "session_id": session_id,
-            "word_count": len(words),
-            "message": f"{len(words)} mots chargés avec succès"
+            "word_count": len(words_normalized),
+            "words": [originals[w] for w in words_normalized],
+            "message": f"{len(words_normalized)} mots prioritaires chargés"
         }
         
     except UnicodeDecodeError:
@@ -850,11 +922,13 @@ async def upload_word_list(file: UploadFile = File(...)):
 
 @api_router.get("/words/count")
 async def get_word_count(session_id: Optional[str] = None):
-    """Get the count of words in the current list"""
+    """Get the count of words in the dictionary and priority list"""
     words_list = get_word_list(session_id)
+    priority_list = get_priority_list(session_id)
     return {
         "count": len(words_list),
-        "is_custom": session_id is not None and session_id in custom_word_lists
+        "priority_count": len(priority_list),
+        "has_priority": len(priority_list) > 0
     }
 
 # Include the router in the main app

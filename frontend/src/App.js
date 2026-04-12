@@ -8,7 +8,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // Configuration Panel Component
-const ConfigPanel = ({ config, setConfig, onInit, isLoading, sessionId, onFileUpload, wordCount }) => {
+const ConfigPanel = ({ config, setConfig, onInit, isLoading, sessionId, onFileUpload, wordCount, priorityWords }) => {
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -103,13 +103,13 @@ const ConfigPanel = ({ config, setConfig, onInit, isLoading, sessionId, onFileUp
       {/* Separator */}
       <div className="border-t border-[#E5E5E5]" />
 
-      {/* File Upload */}
+      {/* File Upload - Priority Words */}
       <div className="flex flex-col gap-3">
-        <label className="label-swiss">Dictionnaire personnalisé</label>
+        <label className="label-swiss">Mots prioritaires</label>
         <label className="upload-zone" data-testid="upload-zone">
           <Upload size={24} className="text-[#0A0A0A]/40" />
           <span className="text-sm text-[#0A0A0A]/60">
-            {sessionId ? "Fichier chargé" : "Charger un fichier .txt"}
+            {sessionId ? `${priorityWords.length} mots chargés` : "Charger un fichier .txt"}
           </span>
           <input
             type="file"
@@ -119,8 +119,17 @@ const ConfigPanel = ({ config, setConfig, onInit, isLoading, sessionId, onFileUp
             data-testid="input-file"
           />
         </label>
+        {priorityWords.length > 0 && (
+          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto">
+            {priorityWords.map((w, i) => (
+              <span key={i} className="font-mono text-xs bg-white border border-[#E5E5E5] px-2 py-1">
+                {w}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-[#0A0A0A]/40">
-          {wordCount} mots disponibles {sessionId && "(personnalisé)"}
+          {wordCount} mots dans le dictionnaire
         </p>
       </div>
     </div>
@@ -251,6 +260,11 @@ const ProposalPanel = ({
             <p className="font-mono text-2xl font-bold mt-2 text-[#002FA7]" data-testid="proposed-word">
               {proposal.original_word}
             </p>
+            {proposal.is_priority && (
+              <span className="text-xs font-semibold text-[#008A00] uppercase tracking-wider mt-1 inline-block">
+                Mot prioritaire
+              </span>
+            )}
           </div>
           <div className="flex gap-2 text-sm text-[#0A0A0A]/60">
             <span className="flex items-center gap-1">
@@ -344,6 +358,7 @@ function App() {
   const [wordCount, setWordCount] = useState(0);
   const [highlightedCells, setHighlightedCells] = useState([]);
   const [history, setHistory] = useState([]);
+  const [priorityWords, setPriorityWords] = useState([]);
 
   // Fetch word count on mount
   const fetchWordCount = useCallback(async () => {
@@ -553,6 +568,7 @@ function App() {
       });
       setSessionId(response.data.session_id);
       setWordCount(response.data.word_count);
+      setPriorityWords(response.data.words || []);
       toast.success(response.data.message);
     } catch (error) {
       const message = error.response?.data?.detail || "Erreur lors du chargement";
@@ -597,6 +613,7 @@ function App() {
         sessionId={sessionId}
         onFileUpload={handleFileUpload}
         wordCount={wordCount}
+        priorityWords={priorityWords}
       />
 
       <CrosswordGrid
