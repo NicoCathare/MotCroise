@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Upload, RefreshCw, Check, X, Grid3X3, ArrowRight, ArrowDown } from "lucide-react";
+import { Upload, RefreshCw, Check, X, Grid3X3, ArrowRight, ArrowDown, Square } from "lucide-react";
 import { Toaster, toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -183,6 +183,7 @@ const ProposalPanel = ({
   onReject,
   onRequestHorizontal,
   onRequestVertical,
+  onFinish,
   isLoading,
   wordsPlaced,
   gridInitialized,
@@ -218,6 +219,15 @@ const ProposalPanel = ({
           >
             <ArrowDown size={16} />
             Proposer mot vertical
+          </button>
+          <button
+            onClick={onFinish}
+            disabled={isLoading}
+            className="btn-primary flex items-center justify-center gap-2 bg-[#0A0A0A] hover:bg-[#333]"
+            data-testid="btn-finish"
+          >
+            <Square size={16} />
+            Terminer
           </button>
         </div>
       )}
@@ -520,6 +530,28 @@ function App() {
     }
   };
 
+  // Finish grid - fill all empty cells with black
+  const handleFinish = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API}/crossword/finish`, {
+        grid_state: gridState,
+      });
+      setGridState((prev) => ({
+        ...prev,
+        grid: response.data.grid,
+      }));
+      setProposal(null);
+      setHighlightedCells([]);
+      toast.success(response.data.message);
+    } catch (error) {
+      const message = error.response?.data?.detail || "Erreur lors de la finalisation";
+      toast.error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="h-screen w-full flex flex-col md:flex-row overflow-hidden bg-white" data-testid="app-container">
       <Toaster position="top-center" richColors />
@@ -547,6 +579,7 @@ function App() {
         onReject={handleReject}
         onRequestHorizontal={() => requestProposal("horizontal")}
         onRequestVertical={() => requestProposal("vertical")}
+        onFinish={handleFinish}
         isLoading={isLoading}
         wordsPlaced={gridState.words_placed}
         gridInitialized={gridState.grid.length > 0}

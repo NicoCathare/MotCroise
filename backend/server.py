@@ -792,6 +792,23 @@ async def place_word_on_grid(request: PlaceWordRequest):
         "message": f"Mot '{get_original_word(word)}' placé avec succès"
     }
 
+class FinishGridRequest(BaseModel):
+    grid_state: Dict[str, Any]
+
+@api_router.post("/crossword/finish")
+async def finish_grid(request: FinishGridRequest):
+    """Fill all empty cells with black cells to finish the grid"""
+    grid = request.grid_state.get("grid", [])
+    if not grid:
+        raise HTTPException(status_code=400, detail="Grille invalide")
+    
+    new_grid = [[("#" if cell == "" else cell) for cell in row] for row in grid]
+    
+    return {
+        "grid": new_grid,
+        "message": "Grille terminée — toutes les cases vides sont noires"
+    }
+
 @api_router.post("/words/upload")
 async def upload_word_list(file: UploadFile = File(...)):
     """Upload a custom word list"""
